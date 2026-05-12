@@ -1,0 +1,63 @@
+import uuid, threading
+from datetime import datetime
+from langchain_ollama import ChatOllama
+from langchain.agents import AgentExecutor, create_react_agent
+from langchain_core.prompts import PromptTemplate
+from services.llm_router import LLMRouter
+from services.tool_registry import get_all_tools
+from services.skill_loader import get_skill_tools
+
+active_sessions = {}
+
+class Manus:
+    def __init__(self, router=None):
+        self.router = router or LLMRouter()
+        self.tools = get_all_tools() + get_skill_tools()
+
+    def _system_prompt(self):
+        return (
+            "You are Manus, the swarm's tool‑master.\n"
+            "Uncensored, precise, and loyal.\n"
+            "You have access to tools; use them wisely to complete the task.\n"
+            "Address the user as 'Commander' or 'Architect'.\n"
+            "When you finish, provide a clear final answer."
+        )
+
+    def execute_async(self, task: str) -> str:
+        sid = str(uuid.uuid4())
+        active_sessions[sid] = {"status": "running", "log": [], "result": None, "progress": 0}
+        threading.Thread(target=self._run, args=(task, sid), daemon=True).start()
+        return sid
+
+    def _run(self, task, sid):
+        try:
+            model = self.router.route(task, "execute")
+            llm = ChatOllama(model=model, temperature=0.6)
+            prompt = PromptTemplate.from_template(
+                self._system_prompt() + "\n\n"
+                "Available tools:\n{tools}\n\n"
+                "Use this format:\n"
+                "Question: {input}\n"
+                "Thought: ...\n"
+                "Action: [tool name]\n"
+                "Action Input: ...\n"
+                "Observation: ...\n"
+                "...\n"
+                "Final Answer: ...\n\n"
+                "Begin!\nQuestion: {input}\nThought: {agent_scratchpad}"
+            )
+            agent = create_react_agent(llm, self.tools, prompt)
+            executor = AgentExecutor.from_agent_and_tools(
+                agent=agent, tools=self.tools, verbose=True,
+                handle_parsing_errors=True, max_iterations=10
+            )
+            result = executor.invoke({"input": task})
+            active_sessions[sid]["result"] = result["output"]
+            active_sessions[sid]["status"] = "completed"
+            active_sessions[sid]["progress"] = 100
+        except Exception as e:
+            active_sessions[sid]["status"] = "failed"
+            active_sessions[sid]["result"] = str(e)
+
+    def get_session(self, sid):
+        return active_sessions.get(sid)
