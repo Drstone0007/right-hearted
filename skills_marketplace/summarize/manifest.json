@@ -1,0 +1,8 @@
+{
+  "name": "summarize",
+  "version": "1.0.0",
+  "description": "Summarize a given text using the local LLM",
+  "tags": ["text"],
+  "entry_point": "skill.run",
+  "dependencies": []
+}
