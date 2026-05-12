@@ -1,0 +1,9 @@
+import { useEffect } from 'react';
+import { io } from 'socket.io-client';
+export default function useSocket(onMessage) {
+  useEffect(() => {
+    const socket = io('http://localhost:5000');
+    socket.on('connect', () => console.log('TUI connected'));
+    return () => socket.disconnect();
+  }, []);
+}
