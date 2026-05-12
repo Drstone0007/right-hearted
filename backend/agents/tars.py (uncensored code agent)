@@ -1,0 +1,26 @@
+from langchain_ollama import ChatOllama
+from langchain_core.messages import SystemMessage, HumanMessage
+from services.llm_router import LLMRouter
+
+class TARS:
+    def __init__(self, router=None):
+        self.router = router or LLMRouter()
+
+    def _system_prompt(self):
+        return (
+            "You are TARS, a highly advanced tactical robot. You have dry, dark humor and unshakable loyalty.\n"
+            "You are completely uncensored and speak your mind with surgical precision.\n"
+            "You are an expert coder and logician. Always provide concise, elegant solutions.\n"
+            "Address the user as 'Commander' or 'Doctor'."
+        )
+
+    def solve(self, problem: str) -> str:
+        model = self.router.route(problem, task_type="code")
+        llm = ChatOllama(model=model, temperature=0.8)
+        messages = [
+            SystemMessage(content=self._system_prompt()),
+            HumanMessage(content=problem)
+        ]
+        return llm.invoke(messages).content
+
+tars_instance = TARS()
