@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>🔧 Manus – Tool‑Master</h2>
+<div class="glass p-3">
+    <div id="conversation" style="max-height: 400px; overflow-y: auto; margin-bottom: 15px;">
+        <p class="text-info"><b>Manus:</b> Ready, Commander. What do you need executed?</p>
+    </div>
+    <div id="progressArea" style="display:none;">
+        <div class="progress" style="height:6px;"><div class="progress-bar bg-info" id="progressFill" style="width:0%"></div></div>
+        <small id="progressLog" class="text-muted"></small>
+    </div>
+    <div class="input-group">
+        <textarea id="taskInput" class="form-control bg-dark text-light" rows="2" placeholder="Task..."></textarea>
+        <button class="btn btn-outline-info" onclick="sendTask()">Execute</button>
+    </div>
+</div>
+
+<script>
+let currentSession = null;
+async function sendTask() {
+    const task = document.getElementById('taskInput').value.trim();
+    if (!task) return;
+    addMsg('user', task);
+    document.getElementById('taskInput').value = '';
+    const resp = await fetch('/manus/api/start', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({task})
+    });
+    const data = await resp.json();
+    if (data.success) {
+        currentSession = data.session_id;
+        document.getElementById('progressArea').style.display = 'block';
+        pollSession();
+    } else addMsg('manus', 'Error starting task.');
+}
+async function pollSession() {
+    if (!currentSession) return;
+    const resp = await fetch(`/manus/api/session/${currentSession}`);
+    const data = await resp.json();
+    if (!data.success) return;
+    const session = data.session;
+    document.getElementById('progressFill').style.width = session.progress + '%';
+    if (session.log && session.log.length) {
+        document.getElementById('progressLog').innerText = session.log.slice(-1)[0];
+    }
+    if (session.status === 'completed' || session.status === 'failed') {
+        addMsg('manus', session.result);
+        document.getElementById('progressArea').style.display = 'none';
+        currentSession = null;
+    } else setTimeout(pollSession, 1500);
+}
+function addMsg(role, text) {
+    const div = document.createElement('div');
+    div.className = `mb-1 ${role==='manus' ? 'text-info' : 'text-light'}`;
+    div.innerHTML = `<b>${role==='manus' ? 'Manus' : 'You'}:</b> ${text}`;
+    document.getElementById('conversation').appendChild(div);
+    div.scrollIntoView({behavior:'smooth'});
+}
+</script>
+{% endblock %}
