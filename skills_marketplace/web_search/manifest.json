@@ -1,0 +1,8 @@
+{
+  "name": "web_search",
+  "version": "1.0.0",
+  "description": "Search the web using DuckDuckGo",
+  "tags": ["research"],
+  "entry_point": "skill.run",
+  "dependencies": ["duckduckgo-search"]
+}
